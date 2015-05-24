@@ -1,0 +1,89 @@
+---
+title: "Machine Learning Project"
+author: "Ann Charlton"
+date: "Saturday, May 23, 2015"
+output: html_document
+---
+
+##Summary
+
+This project predicts the correctness of performing barbell lifts by using data from accelerometers worn by participants. The accelerometers were worn on the belt, forearm, arm, and dumbbell by 6 different participants. The barbell lifts were performed in 6 different ways - the correct way and 5 incorrect ways of performing the lifts and classified accordingly. By using accelerometer data, we then predicted the classification of 20 unknown barbell lifts.
+
+##Building the Model
+
+The first step was to clean the data. 2 types of records appeared in the dataset, and they populated different columns with data. The records with the new_window field equal to "yes" summarized information, but all of the fields used by the 20 test examples were "NA" for these summary records. So I first removed these summary records. I then removed all the columns that had predominantly "NA" values that had been used by the summary records. This left 52 different variables were used along with user_name.
+
+```{r}
+library(caret); library(ggplot2); library(randomForest)
+data <- read.csv("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",header=TRUE)
+data <- subset(data,new_window=="no")
+data_clean <- data[,c(2,8:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+
+```
+
+I the split the data into 70% for the training set and 30% for the testing set.
+
+```{r}
+set.seed(111)
+inTrain <- createDataPartition(y=data_clean$classe,p=0.7,list=FALSE)
+training <- data_clean[inTrain,]
+testing <- data_clean[-inTrain,]
+
+```
+
+The model type that created the best fit was a random forest model because of the non-linear nature of the data.
+
+```{r}
+modelFit <- randomForest(classe ~., data=training)
+```
+
+##Cross Validation
+
+In order to cross validate, I predicted values using the testing set and the model created in the previous step. 99.48% of the records had correctly predicted classifications in the testing set.
+
+```{r}
+pred <- predict(modelFit, testing)
+testing$predRight <- pred==testing$classe
+sum(testing$predRight)/length(testing$predRight)
+```
+
+##Expected Out of Sample Error
+
+The expected out of sample error rate according to the model was 0.62% and the confusion matrix is shown below:
+
+```{r}
+modelFit
+```
+
+
+##Variables
+
+The most influential variables in predicting classification were roll_belt, yaw_belt, pitch_forearm, and magnet_dumbbell_z. Here are the 10 most important variables:
+
+roll_belt            838.30129
+yaw_belt             591.59265
+pitch_forearm        531.74118
+magnet_dumbbell_z    514.92269
+pitch_belt           463.73437
+magnet_dumbbell_y    457.68085
+roll_forearm         413.27733
+magnet_dumbbell_x    324.33617
+roll_dumbbell        284.82571
+magnet_belt_y        278.94707
+
+A plot of magnet_dumbbell_z with another influential variable, magnet_dumbbell_x, shows the circular nature of the dumbbell motion. 
+
+```{r}
+qplot(magnet_dumbbell_x,magnet_dumbbell_z,colour=classe,data=training)
+```
+
+##Results
+
+This model was then used to predict the results for the 20 unknown cases. They were preprocessed exactly in the same manner as the training data.
+
+```{r}
+validate <- read.csv("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",header=TRUE)
+validate_clean <- validate[,c(2,8:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+pred2 <- predict(modelFit, validate_clean)
+```
+
